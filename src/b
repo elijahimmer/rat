@@ -1,0 +1,122 @@
+     1	use clap::Parser;$
+     2	use std::io::Read;$
+$
+     3	#[derive(Parser, Debug)]$
+     4	#[command(author, version, about, long_about = None)]$
+     5	struct Args {$
+     6	    #[arg(short = 'A', long = "show-all", help = "equivalent to -vET")]$
+     7	    show_all: bool,$
+$
+     8	    #[arg(short = 'b', long = "number-nonblank", help = "number nonempty output lines, overrides -n")]$
+     9	    number_nonblank: bool,$
+$
+    10	    #[arg(short = 'e', help = "equivalent to -vE")]$
+    11	    v_e: bool,$
+$
+    12	    #[arg(short = 'E', long = "show-ends", help = "display $ at end of each line")]$
+    13	    show_ends: bool,$
+$
+    14	    #[arg(short = 'n', long = "number", help = "number all output lines")]$
+    15	    number: bool,$
+$
+    16	    #[arg(short = 's', long = "squeeze-blank", help = "suppress repeated empty output lines")]$
+    17	    squeeze_blank: bool,$
+$
+    18	    #[arg(short = 't', help = "equivalent to -vT")]$
+    19	    v_t: bool,$
+$
+    20	    #[arg(short = 'T', long = "show_tabs", help = "display TAB characters as ^I")]$
+    21	    show_tabs: bool,$
+$
+    22	    #[arg(short = 'u', help = "(ignored)")]$
+    23	    ignore: bool,$
+$
+    24	    #[arg(short = 'v', long = "show-nonprinting", help = "use ^ and M- notation, except for LFD and TAB")]$
+    25	    show_nonprinting: bool,$
+$
+    26	    paths: Vec<String>,$
+    27	}$
+$
+    28	fn main() {$
+    29	    let args = Args::parse();$
+$
+    30	    let program: String = std::env::args()$
+    31	        .next()$
+    32	        .as_ref()$
+    33	        .unwrap_or(&"rat".to_string())$
+    34	        .to_owned();$
+$
+    35	    for path_str in args.paths {$
+    36	        if path_str == "-"$
+    37	        {$
+    38	            let mut buff = String::new();$
+    39	            let mut stdin = std::io::stdin();$
+    40	            stdin.read_to_string(&mut buff).unwrap();$
+    41	            continue;$
+    42	        };$
+$
+    43	        let path = std::path::Path::new(&path_str);$
+    44	        let meta = match std::fs::metadata(&path) {$
+    45	            Ok(meta) => meta,$
+    46	            Err(err) => {$
+    47	                println!("{program}: {}: {}", path.display(), err);$
+    48	                return;$
+    49	            }$
+    50	        };$
+$
+    51	        if !meta.is_file() {$
+    52	            if meta.is_dir() {$
+    53	                println!("{program}: {}: Is a directory", path.display());$
+    54	                return;$
+    55	            };$
+    56	            if meta.is_symlink() {$
+    57	                println!("{program}: {}: Is a symlink", path.display());$
+    58	                return;$
+    59	            };$
+    60	        };$
+$
+    61	        let mut file = match std::fs::read_to_string(path) {$
+    62	            Ok(file) => file,$
+    63	            Err(err) => {$
+    64	                println!("{program}: {}: {}", path.display(), err);$
+    65	                return;$
+    66	            }$
+    67	        };$
+$
+    68	        if args.show_tabs {$
+    69	            file = file.replace("\t", "^I");$
+    70	        };$
+$
+    71	        if args.number_nonblank || args.number {$
+    72	            file = file$
+    73	                .lines()$
+    74	                .enumerate()$
+    75	                .map(|(i, line)| {$
+    76	                    if args.number_nonblank {$
+    77	                        if line.is_empty() {$
+    78	                            return "\n".to_string();$
+    79	                        };$
+    80	                    };$
+    81	                    let ln = (i+1).to_string();$
+$
+    82	                    let suffix = if ln.len() > 6 {$
+    83	                        ln$
+    84	                    } else {$
+    85	                        " ".repeat(6 - ln.len()).as_str().to_owned() + &ln$
+    86	                    };$
+$
+    87	                    format!("{}\t{}\n", suffix, line)$
+    88	                })$
+    89	                .collect::<String>();$
+    90	        };$
+$
+    91	        if args.show_ends {$
+    92	            file = file$
+    93	                .lines()$
+    94	                .map(|line| line.to_owned() + "$\n")$
+    95	                .collect::<String>();$
+    96	        };$
+$
+    97	        print!("{}", file);$
+    98	    }$
+    99	}$
